@@ -1,1 +1,23 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
 
+[project]
+name = "rechi"
+version = "1.0.0"
+authors = [
+  { name="bazsalazas", email="ancsa.balazs@gmail.com" },
+]
+description = "Regular Expression with CHain Iteration"
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+license = "GPL-3.0"
+license-files = ["LICENSE"]
+
+[project.urls]
+Homepage = "https://github.com/bazsalazas/rechi"
+Issues = "https://github.com/bazsalazas/rechi/issues"
