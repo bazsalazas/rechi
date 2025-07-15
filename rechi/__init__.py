@@ -1,3 +1,3 @@
-from .rechi import Pattern, compile
+from .rechi import compile, Pattern
 
-__all__ = ["Pattern", "compile"]
+__all__ = ["compile", "Pattern"]

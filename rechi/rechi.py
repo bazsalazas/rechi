@@ -1,27 +1,15 @@
-from typing import List, AnyStr, overload
+from typing import List, AnyStr
 import re
 
 class Pattern:
     """ Pattern class provides a way to match a string with a list of pattern options and continue to match with chained expression."""
 
     _patterns: List["re.Pattern | Pattern | None"]
-    _flags: int | re.RegexFlag
     _next: "Pattern | None"
     _max: int
     _matched: int
 
-    @overload
-    def __init__(self, pattern: AnyStr, flags: int | re.RegexFlag = 0, next: "Pattern | None" = None, max: int = 0): ...
-    @overload
-    def __init__(self, pattern: "Pattern", flags: int | re.RegexFlag = 0, next: "Pattern | None" = None, max: int = 0): ...
-    @overload
-    def __init__(self, pattern: None, flags: int | re.RegexFlag = 0, next: "Pattern | None" = None, max: int = 0): ...
-    @overload
-    def __init__(self, pattern: List["AnyStr | Pattern | None"], flags: int | re.RegexFlag = 0, next: "Pattern | None" = None): ...
-    def __init__(self, pattern, flags=0, next=None, max=0):
-        """ Initialize Pattern with a list of match options and an optional next chain element.
-            Flags can be provided to parse string patterns into regex patterns."""
-
+    def __init__(self, pattern: "AnyStr | Pattern | None | List[AnyStr | Pattern | None]", flags: int | re.RegexFlag = 0, next: "Pattern | None" = None, max: int = 0):
         self._patterns = []
         self._flags = flags
         self._next = next
@@ -43,13 +31,7 @@ class Pattern:
             assert pattern is None
             self._patterns.append(None)
 
-    @overload
-    def chain(self, pattern: AnyStr) -> "Pattern": ...
-    @overload
-    def chain(self, pattern: "Pattern") -> "Pattern": ...
-    @overload
-    def chain(self, pattern: List["AnyStr | Pattern | None"]) -> "Pattern": ...
-    def chain(self: "Pattern", pattern):
+    def chain(self, pattern: "AnyStr | Pattern | None | List[AnyStr | Pattern | None]") -> "Pattern":
         """ Chain the next Pattern elemenet to the end of the chain.
             Turns chain and list of pattern options into Pattern object."""
         p = self
@@ -58,19 +40,23 @@ class Pattern:
         p._next = Pattern(pattern, self._flags)
         return self
 
-    def match(self, string: AnyStr, pos: int = 0) -> List[re.Match[AnyStr]] | None:
+    def match(self, string: AnyStr, pos: int = 0, endpos: int | None = None) -> List[re.Match[AnyStr]] | None:
         """ Match string with pattern and return list of matches. """
         # Prep max counters
-        p = self
-        p._matched = 0
-        while p._next is not None:
-            p = p._next
-            p._matched = 0
+        self._prep()
 
         # Match recursively
-        return self._match(string, pos)
+        return self._match(string, pos, endpos if endpos is not None else len(string))
+
+    def _prep(self) -> None:
+        self._matched = 0
+        for mp in self._patterns:
+            if isinstance(mp, Pattern):
+                mp._prep()
+        if self._next is not None:
+            self._next._prep()
  
-    def _match(self, string: AnyStr, pos: int = 0) -> List[re.Match[AnyStr]] | None:
+    def _match(self, string: AnyStr, pos: int, endpos: int) -> List[re.Match[AnyStr]] | None:
         # Check for max counter
         if self._max > 0 and self._matched >= self._max:
             return None
@@ -83,7 +69,7 @@ class Pattern:
 
             # For regex pattern, try to match
             elif isinstance(pattern, re.Pattern):
-                m = pattern.match(string, pos=pos)
+                m = pattern.match(string, pos=pos, endpos=endpos)
  
                 # If match, get position and save result to list
                 if m is not None:
@@ -94,7 +80,7 @@ class Pattern:
             # For Pattren, try to match recursively
             else:
                 assert isinstance(pattern, Pattern)
-                m = pattern._match(string, pos=pos)
+                m = pattern._match(string, pos, endpos)
 
                 # If match, get position
                 if m is not None:
@@ -111,7 +97,7 @@ class Pattern:
         # If a pattern matched, and there is next
         if self._next is not None:
             # Get match of next elelemnt recursively
-            n = self._next._match(string, pos=pos)
+            n = self._next._match(string, pos, endpos)
             if n is not None:
                 # Return concatenated matches
                 return m + n
@@ -123,5 +109,28 @@ class Pattern:
         # If no next, return matches of pattern
         return m
 
-def compile(pattern: AnyStr | List[AnyStr | Pattern | None], flags: int | re.RegexFlag = 0, max: int = 0) -> Pattern:
+    @property
+    def flags(self):
+        """ Get the regex flags of the pattern. """
+        return self._flags
+
+    @property
+    def patterns(self) -> List["re.Pattern | Pattern | None"]:
+        """ Get the list of patterns within the pattern object. """
+        return self._patterns
+
+    @property
+    def next(self) -> "Pattern | None":
+        """ Get the next pattern object. """
+        return self._next
+
+    @property
+    def max(self) -> int:
+        """ Get the max limit of matches. """
+        return self._max
+
+def compile(pattern: AnyStr | Pattern | None | List[AnyStr | Pattern | None], flags: int | re.RegexFlag = 0, max: int = 0) -> Pattern:
+    """ Compile a string or list of strings into a Pattern object.
+        Flags can be provided to parse string patterns into regex patterns.
+        Max can be used to limit the number of matches."""
     return Pattern(pattern, flags, max=max)
